@@ -1,0 +1,77 @@
+{
+  "name": "vnrld/sample",
+  "description": "description_text",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Lukas Dabkowski",
+      "email": "ld@vnr.com"
+    }
+  ],
+  "repositories": [
+    {
+      "type": "package",
+      "package": {
+        "name": "vnrld/lib1",
+        "version": "dev-master",
+        "type": "lib1",
+        "dist": {
+          "url": "https://github.com/vnrld/lib1.git",
+          "type": "vnrld/lib1"
+        },
+        "source": {
+          "url": "https://github.com/vnrld/lib1.git",
+          "type": "git",
+          "reference": "origin/master"
+        }
+      },
+      "scripts": {
+
+        "post-package-install": [
+          "find . -name composer.json -maxdepth 1 -execdir composer update \\;"
+        ],
+        "post-package-update": [
+          "find . -name composer.json -maxdepth 1 -execdir composer update \\;"
+        ]
+      }
+    },
+    {
+      "type": "package",
+      "package": {
+        "name": "vnrld/lib2",
+        "version": "dev-master",
+        "type": "lib2",
+        "dist": {
+          "url": "https://github.com/vnrld/lib2.git",
+          "type": "vnrld/lib2"
+        },
+        "source": {
+          "url": "https://github.com/vnrld/lib2.git",
+          "type": "git",
+          "reference": "origin/master"
+        }
+      }
+    }
+  ],
+  "extra": {
+    "installer-types": [
+      "lib1",
+      "lib2"
+    ],
+    "installer-paths": {
+      "lib1": [
+        "type:lib1"
+      ],
+      "lib2": [
+        "type:lib2"
+      ]
+    }
+  },
+  "require": {
+    "vnrld/lib1": "dev-master",
+    "vnrld/lib2": "dev-master",
+    "composer/installers": "1.7.*",
+    "oomphinc/composer-installers-extender": "1.1.*"
+  }
+}
