@@ -9,43 +9,31 @@
       "email": "ld@vnr.com"
     }
   ],
+  "autoload": {
+    "psr-4": {
+      "ComposerScripts\\": "."
+    }
+  },
   "repositories": [
     {
       "type": "package",
       "package": {
         "name": "vnrld/lib1",
-        "version": "dev-master",
-        "type": "lib1",
-        "dist": {
-          "url": "https://github.com/vnrld/lib1.git",
-          "type": "vnrld/lib1"
-        },
+        "version": "@dev",
+        "type": "my-plugin",
         "source": {
           "url": "https://github.com/vnrld/lib1.git",
           "type": "git",
           "reference": "origin/master"
         }
-      },
-      "scripts": {
-
-        "post-package-install": [
-          "find . -name composer.json -maxdepth 1 -execdir composer update \\;"
-        ],
-        "post-package-update": [
-          "find . -name composer.json -maxdepth 1 -execdir composer update \\;"
-        ]
       }
     },
     {
       "type": "package",
       "package": {
         "name": "vnrld/lib2",
-        "version": "dev-master",
-        "type": "lib2",
-        "dist": {
-          "url": "https://github.com/vnrld/lib2.git",
-          "type": "vnrld/lib2"
-        },
+        "version": "@dev",
+        "type": "my-plugin",
         "source": {
           "url": "https://github.com/vnrld/lib2.git",
           "type": "git",
@@ -56,22 +44,43 @@
   ],
   "extra": {
     "installer-types": [
-      "lib1",
-      "lib2"
+      "my-plugin"
     ],
     "installer-paths": {
-      "lib1": [
-        "type:lib1"
-      ],
-      "lib2": [
-        "type:lib2"
+      "plugins/{$name}": [
+        "type:my-plugin"
       ]
+    },
+    "merge-plugin": {
+      "include": [
+        "plugins/*/composer.json"
+      ],
+      "recurse": true,
+      "replace": false,
+      "ignore-duplicates": false,
+      "merge-dev": true,
+      "merge-extra": true,
+      "merge-extra-deep": true,
+      "merge-scripts": true
     }
   },
   "require": {
-    "vnrld/lib1": "dev-master",
-    "vnrld/lib2": "dev-master",
+    "ext-json" : "*",
+    "vnrld/lib1": "@dev",
+    "vnrld/lib2": "@dev",
     "composer/installers": "1.7.*",
-    "oomphinc/composer-installers-extender": "1.1.*"
+    "oomphinc/composer-installers-extender": "1.1.*",
+    "wikimedia/composer-merge-plugin": "^1.4"
+  },
+  "scripts": {
+    "post-package-install": [
+      "ComposerScripts\\Executor::processDependencies"
+    ],
+    "post-package-update": [
+      "ComposerScripts\\Executor::processDependencies"
+    ],
+    "post-autoload-dump" : [
+      "ComposerScripts\\Executor::removeUnwantedComposerFiles"
+    ]
   }
 }
