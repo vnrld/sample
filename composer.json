@@ -19,27 +19,18 @@
       "type": "package",
       "package": {
         "name": "vnrld/lib1",
-        "version": "@dev",
+        "version": "1.0.1",
         "type": "my-plugin",
         "source": {
           "url": "https://github.com/vnrld/lib1.git",
           "type": "git",
-          "reference": "origin/master"
+          "reference": "1.0.1"
         }
       }
     },
     {
-      "type": "package",
-      "package": {
-        "name": "vnrld/lib2",
-        "version": "@dev",
-        "type": "my-plugin",
-        "source": {
-          "url": "https://github.com/vnrld/lib2.git",
-          "type": "git",
-          "reference": "origin/master"
-        }
-      }
+      "type": "vcs",
+      "url": "https://github.com/vnrld/lib2.git"
     }
   ],
   "extra": {
@@ -65,22 +56,25 @@
     }
   },
   "require": {
-    "ext-json" : "*",
-    "vnrld/lib1": "@dev",
-    "vnrld/lib2": "@dev",
+    "ext-json": "*",
+    "vnrld/lib1": "^1.0",
+    "vnrld/lib2": "dev-master@dev",
     "composer/installers": "1.7.*",
     "oomphinc/composer-installers-extender": "1.1.*",
     "wikimedia/composer-merge-plugin": "^1.4"
   },
   "scripts": {
     "post-package-install": [
-      "ComposerScripts\\Executor::processDependencies"
+      "ComposerScripts\\Executor::installPackageDependencies"
+    ],
+    "pre-command-run": [
+      "ComposerScripts\\Executor::preCommandRun"
     ],
     "post-package-update": [
-      "ComposerScripts\\Executor::processDependencies"
+      "ComposerScripts\\Executor::updatePackageDependencies"
     ],
-    "post-autoload-dump" : [
-      "ComposerScripts\\Executor::removeUnwantedComposerFiles"
+    "post-dependencies-solving": [
+      "ComposerScripts\\Executor::registerShutdownFunction"
     ]
   }
 }
