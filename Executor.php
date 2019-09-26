@@ -2,39 +2,54 @@
 
 namespace ComposerScripts;
 
-use Composer\Composer;
 use Composer\Console\Application;
 use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\BufferedOutput;
 use Composer\Factory;
-use Composer\EventDispatcher\Event as DispatcherEvent;
-use Composer\Script\Event;
-use Composer\Installer;
 use Composer\Installer\PackageEvent;
-use Composer\Installer\InstallerEvent;
 use Composer\Plugin\PreCommandRunEvent;
-use Composer\Plugin\CommandEvent;
+use Exception;
 
 class Executor
 {
+    /**
+     * Lock file for external packages, that don't have the composer.json file in the main directory
+     *
+     * @var string
+     */
     static protected $lockFile = __DIR__ . '/composer.packages.lock';
 
-    static protected $eventId;
-
+    /**
+     * List of packages
+     *
+     * @var array
+     */
     static protected $packages;
 
-    public static function preCommandRun(PreCommandRunEvent $event)
+    /**
+     * Disables the cache storage for the external packages
+     *
+     * @param PreCommandRunEvent $event Event object
+     *
+     * @return void
+     */
+    public static function disableInstallingFromCacheForExternalPackages(PreCommandRunEvent $event): void
     {
 
+        // Set up the Composer application
         $application = new Application();
         $application->setAutoExit(false);
 
+        // create a fresh Composer instance to avoid overlapping with the running instance
         $composer = Factory::create($application->getIO(), null, false);
 
-        // Composer instance
+        // Get the cache directory
         $cacheDir = $composer->getConfig()->get('cache-vcs-dir');
-        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($cacheDir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
 
+        // Iterate over the cache directory
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($cacheDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST);
+
+        // Search and destroy, oops, find the repositories of the package type
         $repositories = $composer->getConfig()->getRepositories();
 
         foreach ($repositories as $repository) {
@@ -45,21 +60,29 @@ class Executor
             }
         }
 
+        // if any external package exists
         foreach (self::$packages as $package) {
+
             /**
+             * Delete the cached entries related to the package. This will force composer to fetch the newest instance
+             * directly from the repository instead of using the cached version.
+             *
              * @var \SplFileObject $file
              */
             foreach ($it as $file) {
                 if (strpos($file->getPathname(), str_replace('/', '-', $package) . '.git') !== false) {
-
-                    echo $file->getPathname() . ' deleted!' . PHP_EOL;
                     $file->isDir() ? rmdir($file) : unlink($file);
                 }
             }
 
+            // if the next executed command is "update"
             if ($event->getCommand() === 'update') {
 
-                $input = new ArrayInput(['command' => 'require', 'packages' => is_array($package) ? $package : [$package]]);
+                // run the application to fetch the dependent package from the repository
+                $input = new ArrayInput([
+                    'command' => 'require',
+                    'packages' => is_array($package) ? $package : [$package]
+                ]);
                 $input->setInteractive(false);
 
                 $application->run($input);
@@ -68,143 +91,18 @@ class Executor
         }
     }
 
-
-    public static function preDependenciesSolving(CommandEvent $event)
-    {
-
-        echo strtoupper(__METHOD__) . PHP_EOL;
-        print_r(get_class_methods($event));
-
-    }
-
-    public static function installPackageDependencies(PackageEvent $event)
-    {
-
-
-        echo 'Event ID: ' . self::$eventId . PHP_EOL;
-
-        // Get the common objects
-        [$installedPackage, $installationManager, $repositories] = self::getCommonObjects($event);
-
-        $currentType = '';
-
-        foreach ($repositories as $repository) {
-
-            if (($repository['package']['name'] ?? null) === $installedPackage->getName()) {
-                $currentType = $repository['package']['type'];
-                break;
-            }
-        }
-
-        if ($installedPackage->getType() === $currentType) {
-
-            echo strtoupper(__METHOD__) . PHP_EOL;
-
-            $installedPackage->setTargetDir($installationManager->getInstallPath($installedPackage));
-
-            $packageComposerJson = $installedPackage->getTargetDir() . '/composer.json';
-
-            $dependentPackages = [];
-
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($installedPackage->getTargetDir()));
-
-            foreach ($it as $file) {
-
-                $pathName = $file->getPathname();
-
-                if (basename($pathName) === 'composer.json') {
-                    if (copy($pathName, $packageComposerJson)) {
-                        $dependentPackages[$pathName] = [
-                            'file' => $packageComposerJson,
-                            'package' => $installedPackage->getName()
-                        ];
-                    }
-                }
-            }
-
-            $fileContents = json_encode($dependentPackages, JSON_THROW_ON_ERROR) . PHP_EOL;
-
-            if (file_exists(self::$lockFile)) {
-                $fileContents = str_replace($fileContents, '',
-                    file_get_contents(self::$lockFile));
-            }
-
-            file_put_contents(self::$lockFile, $fileContents, FILE_APPEND);
-
-           $installer = Installer::create(
-                $event->getIO(),
-                // Create a new Composer instance to ensure full processing of
-                // the merged files.
-                Factory::create($event->getIO(), null, false)
-            );
-
-            $installer->setUpdate(true);
-            $installer->run();
-
-        }
-
-        // do stuff
-    }
-
-    public static function updatePackageDependencies(PackageEvent $event)
-    {
-        echo strtoupper(__METHOD__) . PHP_EOL;
-
-        $initialPackage = $event->getOperation()->getInitialPackage();
-        $targetPackage = $event->getOperation()->getTargetPackage();
-
-        var_dump($initialPackage->getName());
-        var_dump($targetPackage->getName());
-
-        // do stuff
-    }
-
     /**
-     * Removes the composer.json files that were copied in the previous method
+     * Generates the composer.json file in the main package directory
      *
-     */
-    public static function registerShutdownFunction(): void
-    {
-        echo strtoupper(__METHOD__) . PHP_EOL;
-        register_shutdown_function([self::class, 'shutdown']);
-    }
-
-    public static function shutdown()
-    {
-        echo strtoupper(__METHOD__) . PHP_EOL;
-
-        var_dump(self::$packages);
-
-        //unlink('composer.lock');
-
-        /* if (file_exists(self::$lockFile)) {
-            $files = file(self::$lockFile);
-
-            foreach ($files as $fileJson) {
-
-                $fileArray = json_decode(trim($fileJson), true, 512, JSON_THROW_ON_ERROR);
-
-                foreach ($fileArray as $srcFile => $targetFile) {
-
-                    if (file_exists($srcFile)) {
-                        unlink($targetFile);
-                        continue;
-                    }
-                }
-
-            }
-
-            unlink(self::$lockFile);
-        } */
-    }
-
-    /**
-     * @param PackageEvent $event
+     * @param PackageEvent $event Package event
      *
-     * @return array
+     * @return void
+     *
+     * @throws Exception If the copy process of the composer.json file fails
      */
-    protected static function getCommonObjects(PackageEvent $event): array
+    public static function generateComposerJson(PackageEvent $event): void
     {
+
         // Current package
         $installedPackage = $event->getOperation()->getPackage();
 
@@ -216,6 +114,47 @@ class Executor
 
         // List of the repositories
         $repositories = $composer->getConfig()->getRepositories();
-        return [$installedPackage, $installationManager, $repositories];
+
+        $currentType = '';
+
+        // Find the type of the repository
+        foreach ($repositories as $repository) {
+
+            if (($repository['package']['name'] ?? null) === $installedPackage->getName()) {
+                $currentType = $repository['package']['type'];
+                break;
+            }
+        }
+
+        // Only if the types are equal
+        if ($installedPackage->getType() === $currentType) {
+
+            // Set the package's target directory
+            $installedPackage->setTargetDir($installationManager->getInstallPath($installedPackage));
+
+            // Prepare target file name
+            $packageComposerJson = $installedPackage->getTargetDir() . '/composer.json';
+
+            // Iterate over the target directory
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($installedPackage->getTargetDir()));
+
+            foreach ($it as $file) {
+
+                $pathName = $file->getPathname();
+
+                // if the first composer file was found
+                if (basename($pathName) === 'composer.json') {
+
+                    // copy it to the main directory
+                    if (copy($pathName, $packageComposerJson)) {
+                        break;
+                    }
+
+                    // or if the copying did not work, shout.
+                    throw new Exception('Package "' . $installedPackage->getName() . '" couldn\'t be processed! 
+                       Copy from "' . $pathName . '" to "' . $packageComposerJson . '" failed!');
+                }
+            }
+        }
     }
 }

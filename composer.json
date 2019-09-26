@@ -1,6 +1,6 @@
 {
   "name": "vnrld/sample",
-  "description": "description_text",
+  "description": "Sample application which contains a non-composer-compatible package",
   "minimum-stability": "stable",
   "license": "proprietary",
   "authors": [
@@ -57,6 +57,7 @@
   },
   "require": {
     "ext-json": "*",
+    "ext-xml" : "*",
     "vnrld/lib1": "^1.0",
     "vnrld/lib2": "dev-master@dev",
     "composer/installers": "1.7.*",
@@ -64,17 +65,11 @@
     "wikimedia/composer-merge-plugin": "^1.4"
   },
   "scripts": {
-    "post-package-install": [
-      "ComposerScripts\\Executor::installPackageDependencies"
-    ],
     "pre-command-run": [
-      "ComposerScripts\\Executor::preCommandRun"
+      "ComposerScripts\\Executor::disableInstallingFromCacheForExternalPackages"
     ],
-    "post-package-update": [
-      "ComposerScripts\\Executor::updatePackageDependencies"
-    ],
-    "post-dependencies-solving": [
-      "ComposerScripts\\Executor::registerShutdownFunction"
+    "post-package-install": [
+      "ComposerScripts\\Executor::generateComposerJson"
     ]
   }
 }
